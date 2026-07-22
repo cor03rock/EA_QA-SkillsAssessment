@@ -1,0 +1,111 @@
+# EA QA Skills Assessment
+
+Automated test suite covering two public, throwaway targets:
+
+- **UI**: [Swag Labs](https://www.saucedemo.com) — login → add to cart → checkout
+- **API**: [restful-booker](https://restful-booker.herokuapp.com) — CRUD on `/booking`, with token auth
+
+## Why Playwright
+
+- **One tool, two layers.** `@playwright/test` ships a first-class `APIRequestContext` alongside the browser automation, so the UI and API suites share one test runner, one config, one CI job, and one report instead of stitching together Selenium + a separate REST client.
+- **Auto-waiting.** Playwright waits for elements to be actionable (visible, stable, enabled) before interacting, which removes most of the manual `sleep`/explicit-wait code that makes Selenium suites flaky.
+- **Web-first assertions with built-in retry.** `expect(locator).toHaveText(...)` polls until it passes or times out, instead of asserting against a single snapshot in time — this matters on a React SPA like Swag Labs where content renders asynchronously.
+- **Tracing and artifacts on failure.** Screenshots, video, and a step-by-step trace viewer are captured automatically on failure (configured in `playwright.config.ts`), which cuts down debugging time significantly versus log-only reports.
+- **TypeScript support out of the box**, which pairs well with Page Object Model classes and a typed API client.
+- Actively maintained by Microsoft with fast, direct browser-engine control (CDP for Chromium, equivalent protocols for Firefox/WebKit) rather than the WebDriver protocol, which tends to be faster and less flaky in practice.
+
+## Project structure
+
+```
+EA_QA-SkillsAssessment/
+├── api/
+│   └── bookingApiClient.ts       # thin wrapper around restful-booker endpoints
+├── fixtures/
+│   ├── api.fixtures.ts           # injects bookingApi + authToken into API tests
+│   └── ui.fixtures.ts            # injects page objects into UI tests
+├── test-data/
+│   ├── booking.ts                # booking payload builder
+│   └── users.ts                  # Swag Labs test accounts
+├── tests/
+│   ├── api/
+│   │   ├── booking.crud.spec.ts      # create / read / update / partial update / delete
+│   │   └── booking.negative.spec.ts  # bad auth, missing id, invalid payload
+│   └── ui/
+│       ├── pages/                    # Page Object Model
+│       │   ├── LoginPage.ts
+│       │   ├── InventoryPage.ts
+│       │   ├── CartPage.ts
+│       │   └── CheckoutPage.ts       # CheckoutInfo / Overview / Complete
+│       ├── login.spec.ts             # happy + unhappy login
+│       ├── checkout.spec.ts          # happy path: login → cart → checkout → confirmation
+│       └── checkout-validation.spec.ts  # unhappy path: incomplete checkout form
+├── .github/workflows/ci.yml      # runs the suite on every push/PR
+├── playwright.config.ts          # two projects: "ui" and "api", separate baseURLs
+└── tsconfig.json
+```
+
+**Why this layout:** Page objects encapsulate *how* to interact with Swag Labs (locators, low-level actions); specs encapsulate *what* is being verified (business flow + assertions). The API client plays the same role for restful-booker. Fixtures (`fixtures/*.ts`) wire both into Playwright's dependency-injection style `test` object, so specs never do `new LoginPage(page)` or raw `request.post(...)` — they just ask for `loginPage` or `bookingApi` as fixture arguments. This keeps specs short and readable, and means a locator or endpoint change only needs to happen in one file.
+
+## What belongs at the UI level vs. the API level
+
+The suite deliberately does **not** push everything through the UI. The split follows a simple rule: **use the UI only for what can only be observed or triggered through the UI; use the API for everything else.**
+
+- **UI tests** (`tests/ui/`) cover the actual user-facing flow: logging in, adding items to a cart, and completing checkout — plus what happens when that flow is misused (a locked-out account, an incomplete checkout form). These are things a user can actually do in a browser, and the assertions (error banners, cart badge count, order confirmation) only exist in the rendered DOM. There's no API to hit instead.
+- **API tests** (`tests/api/`) cover full CRUD and its failure modes directly against `restful-booker`, without ever opening a browser. Data setup/teardown for a resource-oriented use case like a booking record is naturally CRUD — driving that through a UI would mean five browser interactions doing the job of one HTTP call, and would make the suite slower and more brittle for no added confidence.
+- Each UI test creates only the state it needs (log in, add *one or two* products) rather than re-testing catalog browsing, filtering, sorting, etc., through the UI — those are better suited to component/API-level checks in a real product, not full end-to-end runs.
+- The one deliberate exception is checkout form validation (`checkout-validation.spec.ts`): that validation logic and its error message only exist in the front end, so it has to be asserted through the UI.
+
+In short: the UI suite proves the critical path works for a real user, including one predictable way it can break. The API suite proves the underlying resource operations (including auth and error handling) are correct, independent of any particular front end.
+
+## Setup
+
+```bash
+npm install
+npx playwright install chromium   # or omit --project chromium args below to install all browsers
+```
+
+Optional: copy `.env.example` to `.env` to point the suite at different targets/credentials.
+
+## Running the tests
+
+```bash
+npm test              # everything (ui + api)
+npm run test:ui       # Swag Labs UI suite only
+npm run test:api      # restful-booker API suite only
+npm run test:headed   # UI suite with a visible browser, useful for debugging
+npm run test:report   # open the last HTML report
+```
+
+## Test coverage
+
+### UI — Swag Labs (`tests/ui/`)
+
+| Spec | Case | Type |
+|---|---|---|
+| `login.spec.ts` | Locked-out account is rejected with a specific error | Unhappy |
+| `login.spec.ts` | Wrong password is rejected without leaking which field is wrong | Unhappy |
+| `login.spec.ts` | Valid credentials reach the inventory page | Happy |
+| `checkout.spec.ts` | Login → add 2 items → cart → checkout → confirmation, with a subtotal+tax=total arithmetic check | Happy |
+| `checkout-validation.spec.ts` | Submitting checkout with a missing first name is rejected and the user stays on the form | Unhappy |
+
+**Known accounts not covered:** Swag Labs also ships `problem_user`, `performance_glitch_user`, `error_user`, and `visual_user`, which simulate front-end/product bugs (broken images, slow rendering, JS errors, visual glitches) rather than authentication failures. They were left out to keep this suite focused and stable — testing them meaningfully would mean asserting on specific rendering defects, which is a different kind of test (visual regression) than what's covered here.
+
+### API — restful-booker (`tests/api/`)
+
+| Spec | Case | Type |
+|---|---|---|
+| `booking.crud.spec.ts` | Create a booking, returns submitted fields | Happy (Create) |
+| `booking.crud.spec.ts` | Read a booking back by id | Happy (Read) |
+| `booking.crud.spec.ts` | Full update via `PUT`, persists | Happy (Update) |
+| `booking.crud.spec.ts` | Partial update via `PATCH`, other fields untouched | Happy (Update) |
+| `booking.crud.spec.ts` | Delete a booking, subsequent `GET` returns 404 | Happy (Delete) |
+| `booking.negative.spec.ts` | `GET` on a non-existent id returns 404 | Negative |
+| `booking.negative.spec.ts` | `PUT` without an auth token is rejected (403) | Negative |
+| `booking.negative.spec.ts` | `DELETE` without an auth token is rejected (403) | Negative |
+| `booking.negative.spec.ts` | `POST` with a required field missing | Negative (documents a real API defect — see below) |
+
+**Note on the last case:** `restful-booker` does not validate `bookingdates` server-side; sending a payload without it returns `500 Internal Server Error` instead of a `400 Bad Request`. The test asserts on this *actual* behavior rather than the *ideal* behavior, so it fails loudly if that changes — either because the API added validation (great, update the test) or because it started silently accepting malformed bookings (a real regression). Encoding "this is broken, and here's exactly how" is more useful than skipping the case.
+
+## CI
+
+`.github/workflows/ci.yml` runs the full suite (`npx playwright test`) on every push and pull request to `main`, and uploads the HTML report as a build artifact.

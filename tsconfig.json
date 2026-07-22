@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@pages/*": ["tests/ui/pages/*"],
+      "@fixtures/*": ["fixtures/*"],
+      "@api/*": ["api/*"],
+      "@data/*": ["test-data/*"]
+    }
+  },
+  "include": ["tests/**/*.ts", "fixtures/**/*.ts", "api/**/*.ts", "test-data/**/*.ts", "playwright.config.ts"]
+}
