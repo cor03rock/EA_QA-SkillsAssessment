@@ -44,35 +44,13 @@ npm run test:headed   # UI suite with a visible browser, useful for debugging
 npm run test:report   # open the last HTML report
 ```
 
-## Test coverage
+## Given more time, I would:
+- Remove the credentials from the code and saved as a environment variables
+- Add more test to cover other user accounts
 
-### UI — Swag Labs (`tests/ui/`)
-
-| Spec | Case | Type |
-|---|---|---|
-| `login.spec.ts` | Locked-out account is rejected with a specific error | Unhappy |
-| `login.spec.ts` | Wrong password is rejected without leaking which field is wrong | Unhappy |
-| `login.spec.ts` | Valid credentials reach the inventory page | Happy |
-| `checkout.spec.ts` | Login → add 2 items → cart → checkout → confirmation, with a subtotal+tax=total arithmetic check | Happy |
-| `checkout-validation.spec.ts` | Submitting checkout with a missing first name is rejected and the user stays on the form | Unhappy |
-
-**Known accounts not covered:** Swag Labs also ships `problem_user`, `performance_glitch_user`, `error_user`, and `visual_user`, which simulate front-end/product bugs (broken images, slow rendering, JS errors, visual glitches) rather than authentication failures. They were left out to keep this suite focused and stable — testing them meaningfully would mean asserting on specific rendering defects, which is a different kind of test (visual regression) than what's covered here.
-
-### API — restful-booker (`tests/api/`)
-
-| Spec | Case | Type |
-|---|---|---|
-| `booking.crud.spec.ts` | Create a booking, returns submitted fields | Happy (Create) |
-| `booking.crud.spec.ts` | Read a booking back by id | Happy (Read) |
-| `booking.crud.spec.ts` | Full update via `PUT`, persists | Happy (Update) |
-| `booking.crud.spec.ts` | Partial update via `PATCH`, other fields untouched | Happy (Update) |
-| `booking.crud.spec.ts` | Delete a booking, subsequent `GET` returns 404 | Happy (Delete) |
-| `booking.negative.spec.ts` | `GET` on a non-existent id returns 404 | Negative |
-| `booking.negative.spec.ts` | `PUT` without an auth token is rejected (403) | Negative |
-| `booking.negative.spec.ts` | `DELETE` without an auth token is rejected (403) | Negative |
-| `booking.negative.spec.ts` | `POST` with a required field missing | Negative (documents a real API defect — see below) |
-
-**Note on the last case:** `restful-booker` does not validate `bookingdates` server-side; sending a payload without it returns `500 Internal Server Error` instead of a `400 Bad Request`. The test asserts on this *actual* behavior rather than the *ideal* behavior, so it fails loudly if that changes — either because the API added validation (great, update the test) or because it started silently accepting malformed bookings (a real regression). Encoding "this is broken, and here's exactly how" is more useful than skipping the case.
+## UI tooling used in:
+- Structuring the automation testing project with best practices
+- Readme.md file has added unnecessary informations so I had to modify and simplify it.
 
 ## CI
 
