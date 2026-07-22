@@ -14,38 +14,6 @@ Automated test suite covering two public, throwaway targets:
 - **TypeScript support out of the box**, which pairs well with Page Object Model classes and a typed API client.
 - Actively maintained by Microsoft with fast, direct browser-engine control (CDP for Chromium, equivalent protocols for Firefox/WebKit) rather than the WebDriver protocol, which tends to be faster and less flaky in practice.
 
-## Project structure
-
-```
-EA_QA-SkillsAssessment/
-├── api/
-│   └── bookingApiClient.ts       # thin wrapper around restful-booker endpoints
-├── fixtures/
-│   ├── api.fixtures.ts           # injects bookingApi + authToken into API tests
-│   └── ui.fixtures.ts            # injects page objects into UI tests
-├── test-data/
-│   ├── booking.ts                # booking payload builder
-│   └── users.ts                  # Swag Labs test accounts
-├── tests/
-│   ├── api/
-│   │   ├── booking.crud.spec.ts      # create / read / update / partial update / delete
-│   │   └── booking.negative.spec.ts  # bad auth, missing id, invalid payload
-│   └── ui/
-│       ├── pages/                    # Page Object Model
-│       │   ├── LoginPage.ts
-│       │   ├── InventoryPage.ts
-│       │   ├── CartPage.ts
-│       │   └── CheckoutPage.ts       # CheckoutInfo / Overview / Complete
-│       ├── login.spec.ts             # happy + unhappy login
-│       ├── checkout.spec.ts          # happy path: login → cart → checkout → confirmation
-│       └── checkout-validation.spec.ts  # unhappy path: incomplete checkout form
-├── .github/workflows/ci.yml      # runs the suite on every push/PR
-├── playwright.config.ts          # two projects: "ui" and "api", separate baseURLs
-└── tsconfig.json
-```
-
-**Why this layout:** Page objects encapsulate *how* to interact with Swag Labs (locators, low-level actions); specs encapsulate *what* is being verified (business flow + assertions). The API client plays the same role for restful-booker. Fixtures (`fixtures/*.ts`) wire both into Playwright's dependency-injection style `test` object, so specs never do `new LoginPage(page)` or raw `request.post(...)` — they just ask for `loginPage` or `bookingApi` as fixture arguments. This keeps specs short and readable, and means a locator or endpoint change only needs to happen in one file.
-
 ## What belongs at the UI level vs. the API level
 
 The suite deliberately does **not** push everything through the UI. The split follows a simple rule: **use the UI only for what can only be observed or triggered through the UI; use the API for everything else.**
