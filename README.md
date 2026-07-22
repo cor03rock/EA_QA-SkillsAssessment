@@ -48,7 +48,7 @@ npm run test:report   # open the last HTML report
 - Remove the credentials from the code and saved as a environment variables
 - Add more test to cover other user accounts
 
-## UI tooling used in:
+## AI tooling used in:
 - Structuring the automation testing project with best practices
 - Readme.md file has added unnecessary informations so I had to modify and simplify it.
 
